@@ -4,81 +4,83 @@ import {
   createStreamableUI,
   createStreamableValue,
   getAIState,
-  getMutableAIState
-} from 'ai/rsc'
-import { CoreMessage, generateId, ToolResultPart } from 'ai'
-import { Spinner } from '@/components/ui/spinner'
-import { Section } from '@/components/section'
-import { FollowupPanel } from '@/components/followup-panel'
-import { inquire, researcher, taskManager, querySuggestor } from '@/lib/agents'
-import { writer } from '@/lib/agents/writer'
-import { saveChat } from '@/lib/actions/chat'
-import { Chat } from '@/lib/types'
-import { AIMessage } from '@/lib/types'
-import { UserMessage } from '@/components/user-message'
-import { SearchSection } from '@/components/search-section'
-import SearchRelated from '@/components/search-related'
-import { CopilotDisplay } from '@/components/copilot-display'
-import RetrieveSection from '@/components/retrieve-section'
-import { VideoSearchSection } from '@/components/video-search-section'
-import { transformToolMessages } from '@/lib/utils'
-import { AnswerSection } from '@/components/answer-section'
-import { ErrorCard } from '@/components/error-card'
+  getMutableAIState,
+} from 'ai/rsc';
+import { CoreMessage, generateId, ToolResultPart } from 'ai';
+import { Spinner } from '@/components/ui/spinner';
+import { Section } from '@/components/section';
+import { FollowupPanel } from '@/components/followup-panel';
+import { inquire, researcher, taskManager, querySuggestor } from '@/lib/agents';
+import { writer } from '@/lib/agents/writer';
+import { saveChat } from '@/lib/actions/chat';
+import { Chat } from '@/lib/types';
+import { AIMessage } from '@/lib/types';
+import { UserMessage } from '@/components/user-message';
+import { SearchSection } from '@/components/search-section';
+import SearchRelated from '@/components/search-related';
+import { CopilotDisplay } from '@/components/copilot-display';
+import RetrieveSection from '@/components/retrieve-section';
+import { VideoSearchSection } from '@/components/video-search-section';
+import { transformToolMessages } from '@/lib/utils';
+import { AnswerSection } from '@/components/answer-section';
+import { ErrorCard } from '@/components/error-card';
 
 async function submit(
   formData?: FormData,
   skip?: boolean,
-  retryMessages?: AIMessage[]
+  retryMessages?: AIMessage[],
 ) {
-  'use server'
+  'use server';
 
-  const aiState = getMutableAIState<typeof AI>()
-  const uiStream = createStreamableUI()
-  const isGenerating = createStreamableValue(true)
-  const isCollapsed = createStreamableValue(false)
+  const aiState = getMutableAIState<typeof AI>();
+  const uiStream = createStreamableUI();
+  const isGenerating = createStreamableValue(true);
+  const isCollapsed = createStreamableValue(false);
 
-  const aiMessages = [...(retryMessages ?? aiState.get().messages)]
+  const aiMessages = [...(retryMessages ?? aiState.get().messages)];
   // Get the messages from the state, filter out the tool messages
   const messages: CoreMessage[] = aiMessages
     .filter(
-      message =>
+      (message) =>
         message.role !== 'tool' &&
         message.type !== 'followup' &&
         message.type !== 'related' &&
-        message.type !== 'end'
+        message.type !== 'end',
     )
-    .map(message => {
-      const { role, content } = message
-      return { role, content } as CoreMessage
-    })
+    .map((message) => {
+      const { role, content } = message;
+      return { role, content } as CoreMessage;
+    });
 
   // groupId is used to group the messages for collapse
-  const groupId = generateId()
+  const groupId = generateId();
 
-  const useSpecificAPI = process.env.USE_SPECIFIC_API_FOR_WRITER === 'true'
+  const useSpecificAPI = process.env.USE_SPECIFIC_API_FOR_WRITER === 'true';
   const useOllamaProvider = !!(
     process.env.OLLAMA_MODEL && process.env.OLLAMA_BASE_URL
-  )
-  const maxMessages = useSpecificAPI ? 5 : useOllamaProvider ? 1 : 10
+  );
+  const maxMessages = useSpecificAPI ? 5 : useOllamaProvider ? 1 : 10;
   // Limit the number of messages to the maximum
-  messages.splice(0, Math.max(messages.length - maxMessages, 0))
+  messages.splice(0, Math.max(messages.length - maxMessages, 0));
   // Get the user input from the form data
   const userInput = skip
     ? `{"action": "skip"}`
-    : (formData?.get('input') as string)
+    : (formData?.get('input') as string);
+
+  const plaidPublicToken = formData?.get('plaidPublicToken') as string;
 
   const content = skip
     ? userInput
     : formData
     ? JSON.stringify(Object.fromEntries(formData))
-    : null
+    : null;
   const type = skip
     ? undefined
     : formData?.has('input')
     ? 'input'
     : formData?.has('related_query')
     ? 'input_related'
-    : 'inquiry'
+    : 'inquiry';
 
   // Add the user message to the state
   if (content) {
@@ -90,30 +92,61 @@ async function submit(
           id: generateId(),
           role: 'user',
           content,
-          type
-        }
-      ]
-    })
+          type,
+        },
+      ],
+    });
     messages.push({
       role: 'user',
-      content
-    })
+      content,
+    });
   }
 
   async function processEvents() {
     // Show the spinner
-    uiStream.append(<Spinner />)
+    uiStream.append(<Spinner />);
 
-    let action = { object: { next: 'proceed' } }
+    if (plaidPublicToken) {
+      // Handle Plaid token exchange
+      const response = await fetch('/api/exchange-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ public_token: plaidPublicToken }),
+      });
+
+      const plaidData = await response.json();
+
+      if (plaidData && plaidData.access_token) {
+        aiState.update({
+          ...aiState.get(),
+          plaidData, // Store the Plaid data in your AI state or UI state
+        });
+
+        // Inform the UI about success
+        uiStream.append(
+          <div>Plaid account connected successfully!</div>
+        );
+      } else {
+        // Handle errors or failed token exchange
+        uiStream.append(
+          <ErrorCard
+            errorMessage={'Failed to connect Plaid account. Please try again.'}
+          />
+        );
+        return;
+      }
+    }
+
+    let action = { object: { next: 'proceed' } };
     // If the user skips the task, we proceed to the search
-    if (!skip) action = (await taskManager(messages)) ?? action
+    if (!skip) action = (await taskManager(messages)) ?? action;
 
     if (action.object.next === 'inquire') {
       // Generate inquiry
-      const inquiry = await inquire(uiStream, messages)
-      uiStream.done()
-      isGenerating.done()
-      isCollapsed.done(false)
+      const inquiry = await inquire(uiStream, messages);
+      uiStream.done();
+      isGenerating.done();
+      isCollapsed.done(false);
       aiState.done({
         ...aiState.get(),
         messages: [
@@ -122,32 +155,32 @@ async function submit(
             id: generateId(),
             role: 'assistant',
             content: `inquiry: ${inquiry?.question}`,
-            type: 'inquiry'
-          }
-        ]
-      })
-      return
+            type: 'inquiry',
+          },
+        ],
+      });
+      return;
     }
 
     // Set the collapsed state to true
-    isCollapsed.done(true)
+    isCollapsed.done(true);
 
     //  Generate the answer
-    let answer = ''
-    let stopReason = ''
-    let toolOutputs: ToolResultPart[] = []
-    let errorOccurred = false
+    let answer = '';
+    let stopReason = '';
+    let toolOutputs: ToolResultPart[] = [];
+    let errorOccurred = false;
 
-    const streamText = createStreamableValue<string>()
+    const streamText = createStreamableValue<string>();
 
     // If ANTHROPIC_API_KEY is set, update the UI with the answer
     // If not, update the UI with a div
     if (process.env.ANTHROPIC_API_KEY) {
       uiStream.update(
-        <AnswerSection result={streamText.value} hasHeader={false} />
-      )
+        <AnswerSection result={streamText.value} hasHeader={false} />,
+      );
     } else {
-      uiStream.update(<div />)
+      uiStream.update(<div />);
     }
 
     // If useSpecificAPI is enabled, only function calls will be made
@@ -159,14 +192,14 @@ async function submit(
     ) {
       // Search the web and generate the answer
       const { fullResponse, hasError, toolResponses, finishReason } =
-        await researcher(uiStream, streamText, messages)
-      stopReason = finishReason || ''
-      answer = fullResponse
-      toolOutputs = toolResponses
-      errorOccurred = hasError
+        await researcher(uiStream, streamText, messages);
+      stopReason = finishReason || '';
+      answer = fullResponse;
+      toolOutputs = toolResponses;
+      errorOccurred = hasError;
 
       if (toolOutputs.length > 0) {
-        toolOutputs.map(output => {
+        toolOutputs.map((output) => {
           aiState.update({
             ...aiState.get(),
             messages: [
@@ -176,43 +209,43 @@ async function submit(
                 role: 'tool',
                 content: JSON.stringify(output.result),
                 name: output.toolName,
-                type: 'tool'
-              }
-            ]
-          })
-        })
+                type: 'tool',
+              },
+            ],
+          });
+        });
       }
     }
 
     // If useSpecificAPI is enabled, generate the answer using the specific model
     if (useSpecificAPI && answer.length === 0 && !errorOccurred) {
       // modify the messages to be used by the specific model
-      const modifiedMessages = transformToolMessages(messages)
-      const latestMessages = modifiedMessages.slice(maxMessages * -1)
-      const { response, hasError } = await writer(uiStream, latestMessages)
-      answer = response
-      errorOccurred = hasError
+      const modifiedMessages = transformToolMessages(messages);
+      const latestMessages = modifiedMessages.slice(maxMessages * -1);
+      const { response, hasError } = await writer(uiStream, latestMessages);
+      answer = response;
+      errorOccurred = hasError;
       messages.push({
         role: 'assistant',
-        content: answer
-      })
+        content: answer,
+      });
     }
 
     if (!errorOccurred) {
-      const useGoogleProvider = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+      const useGoogleProvider = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       const useOllamaProvider = !!(
         process.env.OLLAMA_MODEL && process.env.OLLAMA_BASE_URL
-      )
-      let processedMessages = messages
+      );
+      let processedMessages = messages;
       // If using Google provider, we need to modify the messages
       if (useGoogleProvider) {
-        processedMessages = transformToolMessages(messages)
+        processedMessages = transformToolMessages(messages);
       }
       if (useOllamaProvider) {
-        processedMessages = [{ role: 'assistant', content: answer }]
+        processedMessages = [{ role: 'assistant', content: answer }];
       }
 
-      streamText.done()
+      streamText.done();
       aiState.update({
         ...aiState.get(),
         messages: [
@@ -221,19 +254,19 @@ async function submit(
             id: groupId,
             role: 'assistant',
             content: answer,
-            type: 'answer'
-          }
-        ]
-      })
+            type: 'answer',
+          },
+        ],
+      });
 
       // Generate related queries
-      const relatedQueries = await querySuggestor(uiStream, processedMessages)
+      const relatedQueries = await querySuggestor(uiStream, processedMessages);
       // Add follow-up panel
       uiStream.append(
         <Section title="Follow-up">
           <FollowupPanel />
-        </Section>
-      )
+        </Section>,
+      );
 
       aiState.done({
         ...aiState.get(),
@@ -243,95 +276,96 @@ async function submit(
             id: groupId,
             role: 'assistant',
             content: JSON.stringify(relatedQueries),
-            type: 'related'
+            type: 'related',
           },
           {
             id: groupId,
             role: 'assistant',
             content: 'followup',
-            type: 'followup'
-          }
-        ]
-      })
+            type: 'followup',
+          },
+        ],
+      });
     } else {
-      aiState.done(aiState.get())
-      streamText.done()
+      aiState.done(aiState.get());
+      streamText.done();
       uiStream.append(
         <ErrorCard
           errorMessage={answer || 'An error occurred. Please try again.'}
-        />
-      )
+        />,
+      );
     }
 
-    isGenerating.done(false)
-    uiStream.done()
+    isGenerating.done(false);
+    uiStream.done();
   }
 
-  processEvents()
+  processEvents();
 
   return {
     id: generateId(),
     isGenerating: isGenerating.value,
     component: uiStream.value,
-    isCollapsed: isCollapsed.value
-  }
+    isCollapsed: isCollapsed.value,
+  };
 }
 
 export type AIState = {
-  messages: AIMessage[]
-  chatId: string
-  isSharePage?: boolean
-}
+  messages: AIMessage[];
+  chatId: string;
+  isSharePage?: boolean;
+  plaidData?: any; // Add plaidData to the AI state type
+};
 
 export type UIState = {
-  id: string
-  component: React.ReactNode
-  isGenerating?: StreamableValue<boolean>
-  isCollapsed?: StreamableValue<boolean>
-}[]
+  id: string;
+  component: React.ReactNode;
+  isGenerating?: StreamableValue<boolean>;
+  isCollapsed?: StreamableValue<boolean>;
+}[];
 
 const initialAIState: AIState = {
   chatId: generateId(),
-  messages: []
-}
+  messages: [],
+};
 
-const initialUIState: UIState = []
+const initialUIState: UIState = [];
 
 // AI is a provider you wrap your application with so you can access AI and UI state in your components.
 export const AI = createAI<AIState, UIState>({
   actions: {
-    submit
+    submit,
   },
   initialUIState,
   initialAIState,
   onGetUIState: async () => {
-    'use server'
+    'use server';
 
-    const aiState = getAIState()
+    const aiState = getAIState();
     if (aiState) {
-      const uiState = getUIStateFromAIState(aiState as Chat)
-      return uiState
+      const uiState = getUIStateFromAIState(aiState as Chat);
+      return uiState;
     } else {
-      return
+      return;
     }
   },
   onSetAIState: async ({ state, done }) => {
-    'use server'
+    'use server';
 
     // Check if there is any message of type 'answer' in the state messages
-    if (!state.messages.some(e => e.type === 'answer')) {
-      return
+    if (!state.messages.some((e) => e.type === 'answer')) {
+      return;
     }
 
-    const { chatId, messages } = state
-    const createdAt = new Date()
-    const userId = 'anonymous'
-    const path = `/search/${chatId}`
+    const { chatId, messages } = state;
+    const createdAt = new Date();
+    const userId = 'anonymous';
+    const path = `/search/${chatId}`;
     const title =
       messages.length > 0
         ? JSON.parse(messages[0].content)?.input?.substring(0, 100) ||
           'Untitled'
-        : 'Untitled'
+        : 'Untitled';
     // Add an 'end' message at the end to determine if the history needs to be reloaded
     const updatedMessages: AIMessage[] = [
       ...messages,
@@ -339,9 +373,9 @@ export const AI = createAI<AIState, UIState>({
         id: generateId(),
         role: 'assistant',
         content: `end`,
-        type: 'end'
-      }
-    ]
+        type: 'end',
+      },
+    ];
 
     const chat: Chat = {
       id: chatId,
@@ -349,24 +383,24 @@ export const AI = createAI<AIState, UIState>({
       userId,
       path,
       title,
-      messages: updatedMessages
-    }
-    await saveChat(chat)
-  }
-})
+      messages: updatedMessages,
+    };
+    await saveChat(chat);
+  },
+});
 
 export const getUIStateFromAIState = (aiState: Chat) => {
-  const chatId = aiState.chatId
-  const isSharePage = aiState.isSharePage
+  const chatId = aiState.chatId;
+  const isSharePage = aiState.isSharePage;
 
-    // Ensure messages is an array of plain objects
-    const messages = Array.isArray(aiState.messages) 
-    ? aiState.messages.map(msg => ({...msg})) 
+  // Ensure messages is an array of plain objects
+  const messages = Array.isArray(aiState.messages)
+    ? aiState.messages.map((msg) => ({ ...msg }))
     : [];
 
   return messages
     .map((message, index) => {
-      const { role, content, id, type, name } = message
+      const { role, content, id, type, name } = message;
 
       if (
         !type ||
@@ -374,15 +408,15 @@ export const getUIStateFromAIState = (aiState: Chat) => {
         (isSharePage && type === 'related') ||
         (isSharePage && type === 'followup')
       )
-        return null
+        return null;
 
       switch (role) {
         case 'user':
           switch (type) {
             case 'input':
             case 'input_related':
-              const json = JSON.parse(content)
-              const value = type === 'input' ? json.input : json.related_query
+              const json = JSON.parse(content);
+              const value = type === 'input' ? json.input : json.related_query;
               return {
                 id,
                 component: (
@@ -391,32 +425,32 @@ export const getUIStateFromAIState = (aiState: Chat) => {
                     chatId={chatId}
                     showShare={index === 0 && !isSharePage}
                   />
-                )
-              }
+                ),
+              };
             case 'inquiry':
               return {
                 id,
-                component: <CopilotDisplay content={content} />
-              }
+                component: <CopilotDisplay content={content} />,
+              };
           }
         case 'assistant':
-          const answer = createStreamableValue()
-          answer.done(content)
+          const answer = createStreamableValue();
+          answer.done(content);
           switch (type) {
             case 'answer':
               return {
                 id,
-                component: <AnswerSection result={answer.value} />
-              }
+                component: <AnswerSection result={answer.value} />,
+              };
             case 'related':
-              const relatedQueries = createStreamableValue()
-              relatedQueries.done(JSON.parse(content))
+              const relatedQueries = createStreamableValue();
+              relatedQueries.done(JSON.parse(content));
               return {
                 id,
                 component: (
                   <SearchRelated relatedQueries={relatedQueries.value} />
-                )
-              }
+                ),
+              };
             case 'followup':
               return {
                 id,
@@ -424,50 +458,50 @@ export const getUIStateFromAIState = (aiState: Chat) => {
                   <Section title="Follow-up" className="pb-8">
                     <FollowupPanel />
                   </Section>
-                )
-              }
+                ),
+              };
           }
         case 'tool':
           try {
-            const toolOutput = JSON.parse(content)
-            const isCollapsed = createStreamableValue()
-            isCollapsed.done(true)
-            const searchResults = createStreamableValue()
-            searchResults.done(JSON.stringify(toolOutput))
+            const toolOutput = JSON.parse(content);
+            const isCollapsed = createStreamableValue();
+            isCollapsed.done(true);
+            const searchResults = createStreamableValue();
+            searchResults.done(JSON.stringify(toolOutput));
             switch (name) {
               case 'search':
                 return {
                   id,
                   component: <SearchSection result={searchResults.value} />,
-                  isCollapsed: isCollapsed.value
-                }
+                  isCollapsed: isCollapsed.value,
+                };
               case 'retrieve':
                 return {
                   id,
                   component: <RetrieveSection data={toolOutput} />,
-                  isCollapsed: isCollapsed.value
-                }
+                  isCollapsed: isCollapsed.value,
+                };
               case 'videoSearch':
                 return {
                   id,
                   component: (
                     <VideoSearchSection result={searchResults.value} />
                   ),
-                  isCollapsed: isCollapsed.value
-                }
+                  isCollapsed: isCollapsed.value,
+                };
             }
           } catch (error) {
             return {
               id,
-              component: null
-            }
+              component: null,
+            };
           }
         default:
           return {
             id,
-            component: null
-          }
+            component: null,
+          };
       }
     })
-    .filter(message => message !== null) as UIState
-}
+    .filter((message) => message !== null) as UIState;
+};
