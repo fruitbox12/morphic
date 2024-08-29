@@ -1,30 +1,31 @@
 import { NextResponse } from 'next/server';
-import { withIronSessionApiRoute } from 'iron-session/next';
-import { plaidClient, sessionOptions } from '@/lib/plaid';
-import { NextApiRequest, NextApiResponse } from 'next';
+import { plaidClient } from 'lib/plaid';
+import { withSessionRoute } from 'iron-session/next/route';
+import { sessionOptions } from '@/lib/session';
 
-// Wrap the POST function with iron-session in the handler
-async function exchangeTokenHandler(request: NextApiRequest, response: NextApiResponse) {
+export async function POST(request: Request) {
   try {
-    const { public_token } = request.body;
+    const { public_token } = await request.json();
 
     const exchangeResponse = await plaidClient.itemPublicTokenExchange({
       public_token,
     });
 
-    // Set session data
-    request.session.access_token = exchangeResponse.data.access_token;
-    await request.session.save();
+    // Assuming you have a way to handle session in this context:
+    const session = await getSession(request);  // Custom implementation required
+    session.access_token = exchangeResponse.data.access_token;
+    await session.save();
 
-    return response.json({ ok: true });
+    return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error('Error exchanging public token:', error);
-    return response.status(500).json({
-      message: 'Internal Server Error',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return NextResponse.json(
+      {
+        message: 'Internal Server Error',
+        error: error.message || 'An unknown error occurred',
+      },
+      { status: 500 }
+    );
   }
 }
 
-// Export POST directly (no default export)
-export const POST = withIronSessionApiRoute(exchangeTokenHandler, sessionOptions);
+export const POST = withSessionRoute(POST, sessionOptions);
