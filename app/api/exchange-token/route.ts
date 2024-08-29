@@ -3,7 +3,8 @@ import { withIronSessionApiRoute } from 'iron-session/next';
 import { plaidClient, sessionOptions } from '@/lib/plaid';
 import { NextApiRequest, NextApiResponse } from 'next';
 
-export async function POST(request: NextApiRequest, response: NextApiResponse) {
+// Wrap the POST function with iron-session in the handler
+async function exchangeTokenHandler(request: NextApiRequest, response: NextApiResponse) {
   try {
     const { public_token } = request.body;
 
@@ -15,8 +16,6 @@ export async function POST(request: NextApiRequest, response: NextApiResponse) {
     request.session.access_token = exchangeResponse.data.access_token;
     await request.session.save();
 
-    // Here you could fetch additional Plaid data if needed
-
     return response.json({ ok: true });
   } catch (error) {
     console.error('Error exchanging public token:', error);
@@ -27,5 +26,5 @@ export async function POST(request: NextApiRequest, response: NextApiResponse) {
   }
 }
 
-// Wrap the handler with iron-session
-export default withIronSessionApiRoute(POST, sessionOptions);
+// Export POST directly (no default export)
+export const POST = withIronSessionApiRoute(exchangeTokenHandler, sessionOptions);
