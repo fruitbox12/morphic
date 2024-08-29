@@ -1,4 +1,3 @@
-// components/PlaidAuth.tsx
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePlaidLink } from 'react-plaid-link';
@@ -34,5 +33,5 @@ export default function PlaidAuth({ linkToken }: { linkToken: string }) {
     }
   }, [ready, open]);
 
-  return null; // This component does not render anything on its own
+  return null;
 }
