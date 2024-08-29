@@ -49,7 +49,6 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
     }
     const responseMessage = await submit(data);
     setMessages((currentMessages) => [...currentMessages, responseMessage]);
-    setIsGenerating(false);
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -58,13 +57,12 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
     await handleQuerySubmit(input, formData);
   };
 
-  // Submit the query if it's provided on the first render
   useEffect(() => {
     if (isFirstRender.current && query && query.trim().length > 0) {
       handleQuerySubmit(query);
       isFirstRender.current = false;
     }
-  }, [query]);
+  }, [query, handleQuerySubmit]);
 
   useEffect(() => {
     const lastMessage = aiMessage.messages.slice(-1)[0];
@@ -83,19 +81,18 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
   };
 
   useEffect(() => {
-    // Focus on input when the page loads
+    // focus on input when the page loads
     inputRef.current?.focus();
   }, []);
 
-  // If there are messages, display the New button
   if (messages.length > 0) {
     return (
       <div className="fixed bottom-2 md:bottom-8 left-0 right-0 flex justify-center items-center mx-auto pointer-events-none">
         <Button
           type="button"
-          variant="secondary"
+          variant={'secondary'}
           className="rounded-full bg-secondary/80 group transition-all hover:scale-105 pointer-events-auto"
-          onClick={handleClear}
+          onClick={() => handleClear()}
           disabled={isGenerating}
         >
           <span className="text-sm mr-2 group-hover:block hidden animate-in fade-in duration-300">
@@ -113,7 +110,9 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
 
   return (
     <div
-      className="fixed bottom-8 left-0 right-0 top-10 mx-auto h-screen flex flex-col items-center justify-center"
+      className={
+        'fixed bottom-8 left-0 right-0 top-10 mx-auto h-screen flex flex-col items-center justify-center'
+      }
     >
       <form onSubmit={handleSubmit} className="max-w-2xl w-full px-6">
         <div className="relative flex items-center w-full">
@@ -126,13 +125,17 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
             placeholder="Ask a question..."
             spellCheck={false}
             value={input}
-            className="resize-none w-full min-h-12 rounded-fill bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="resize-none w-full min-h-12 rounded-fill bg-muted border border-input pl-4 pr-10 pt-3 pb-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'"
             onChange={(e) => {
               setInput(e.target.value);
               setShowEmptyScreen(e.target.value.length === 0);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              if (
+                e.key === 'Enter' &&
+                !e.shiftKey &&
+                !e.nativeEvent.isComposing
+              ) {
                 if (input.trim().length === 0) {
                   e.preventDefault();
                   return;
@@ -150,15 +153,18 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
               const multiple = (height - initialHeight) / 20;
 
               const newBorder = initialBorder - 4 * multiple;
-              inputRef.current.style.borderRadius = `${Math.max(8, newBorder)}px`;
+              inputRef.current.style.borderRadius = `${Math.max(
+                8,
+                newBorder
+              )}px`;
             }}
             onFocus={() => setShowEmptyScreen(true)}
             onBlur={() => setShowEmptyScreen(false)}
           />
           <Button
             type="submit"
-            size="icon"
-            variant="ghost"
+            size={'icon'}
+            variant={'ghost'}
             className="absolute right-2 top-1/2 transform -translate-y-1/2"
             disabled={input.length === 0}
           >
