@@ -1,5 +1,4 @@
 import dynamic from 'next/dynamic';
-import { GetServerSideProps } from 'next';
 
 // Dynamically import the PlaidAuth component, disabling server-side rendering
 const PlaidAuth = dynamic(() => import('@/components/PlaidAuth'), { ssr: false });
@@ -12,14 +11,10 @@ async function fetchLinkTokenFromServer() {
   return data.linkToken;
 }
 
-// Server-side function to fetch props
-export const getServerSideProps: GetServerSideProps = async () => {
+export default async function AuthPage() {
+  // Fetch the link token directly in the component
   const linkToken = await fetchLinkTokenFromServer();
-  return { props: { linkToken } };
-};
 
-// The AuthPage component
-function AuthPage({ linkToken }: { linkToken: string }) {
   return (
     <div>
       <h1>Connecting to Plaid...</h1>
@@ -28,5 +23,3 @@ function AuthPage({ linkToken }: { linkToken: string }) {
     </div>
   );
 }
-
-export default AuthPage;
