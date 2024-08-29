@@ -30,7 +30,6 @@ async function submit(
   skip?: boolean,
   retryMessages?: AIMessage[]
 ) {
-  'use server'
 
   const aiState = getMutableAIState<typeof AI>()
   const uiStream = createStreamableUI()
