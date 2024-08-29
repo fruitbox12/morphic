@@ -4,6 +4,7 @@ import { sessionOptions } from '@/lib/plaid';
 import { Chat } from '@/components/chat';
 import { generateId } from 'ai';
 import { AI } from './actions';
+import { NextResponse } from 'next/server'; // Add this import
 
 export const dynamic = 'force-dynamic';
 
