@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { withIronSessionApiRoute } from 'iron-session/next';
 import { plaidClient, sessionOptions } from '@/lib/plaid';
 
+// Directly export the POST function
 export async function POST(request: Request) {
   try {
     const { public_token } = await request.json();
@@ -28,4 +29,4 @@ export async function POST(request: Request) {
   }
 }
 
-export default withIronSessionApiRoute(POST, sessionOptions);
+// Remove the default export; it's not needed and causes errors in this context
