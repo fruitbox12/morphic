@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { plaidClient, sessionOptions } from '@/lib/plaid';
 import { withIronSessionApiRoute } from 'iron-session/next';
 
-async function exchangeTokenHandler(req, res) {
+async function exchangeTokenHandler(req: Request, res: Response) {
   try {
     const { public_token } = await req.json();
 
