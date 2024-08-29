@@ -1,27 +1,32 @@
-import { withIronSessionApiRoute } from 'iron-session/next';
+import { NextRequest, NextResponse } from 'next/server';
+import { getIronSession } from 'iron-session/edge';
 import { plaidClient, sessionOptions } from '@/lib/plaid';
 
-async function exchangeTokenHandler(req, res) {
+export async function POST(req: NextRequest) {
   try {
-    const { public_token } = req.body; // Use req.body in API routes
+    const body = await req.json();
+    const { public_token } = body;
 
     const exchangeResponse = await plaidClient.itemPublicTokenExchange({
       public_token,
     });
 
-    // Set session data
-    req.session.access_token = exchangeResponse.data.access_token;
-    await req.session.save();
+    const res = NextResponse.next();
+    const session = await getIronSession(req, res, sessionOptions);
 
-    res.status(200).json({ ok: true });
+    // Set session data
+    session.access_token = exchangeResponse.data.access_token;
+    await session.save();
+
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Error exchanging public token:', error);
-    res.status(500).json({
-      message: 'Internal Server Error',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    return NextResponse.json(
+      {
+        message: 'Internal Server Error',
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
-
-// Export as a named POST method handler for the route
-export const POST = withIronSessionApiRoute(exchangeTokenHandler, sessionOptions);
