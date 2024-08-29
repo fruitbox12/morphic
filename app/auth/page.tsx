@@ -1,10 +1,11 @@
-'use client'
+// auth/page.tsx
 import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { usePlaidLink } from 'react-plaid-link';
 import { useAppState } from '@/lib/utils/app-state';
 
-export default function AuthPage() {
+// Since the token is generated server-side, pass it as a prop
+export default function AuthPage({ linkToken }: { linkToken: string }) {
   const { setPlaidData } = useAppState();
   const router = useRouter();
 
@@ -24,7 +25,7 @@ export default function AuthPage() {
   };
 
   const { open, ready } = usePlaidLink({
-    token: 'GENERATED_LINK_TOKEN_FROM_BACKEND',
+    token: linkToken, // Use the link token passed from the server
     onSuccess,
   });
 
