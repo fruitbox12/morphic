@@ -1,7 +1,5 @@
-'use client';
-
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useState, useRef, useEffect } from 'react';
 import type { AI, UIState } from '@/app/actions';
 import { useUIState, useActions, useAIState } from 'ai/rsc';
 import { cn } from '@/lib/utils';
@@ -12,6 +10,8 @@ import { EmptyScreen } from './empty-screen';
 import Textarea from 'react-textarea-autosize';
 import { generateId } from 'ai';
 import { useAppState } from '@/lib/utils/app-state';
+
+const RouterComponent = dynamic(() => import('next/router').then(mod => mod.useRouter), { ssr: false });
 
 interface ChatPanelProps {
   messages: UIState;
@@ -25,7 +25,7 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
   const [aiMessage, setAIMessage] = useAIState<typeof AI>();
   const { isGenerating, setIsGenerating } = useAppState();
   const { submit } = useActions();
-  const router = useRouter();
+  const router = RouterComponent();  // Use dynamically loaded useRouter
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isFirstRender = useRef(true);
 
@@ -77,7 +77,9 @@ export function ChatPanel({ messages, query }: ChatPanelProps) {
     setMessages([]);
     setAIMessage({ messages: [], chatId: '' });
     setInput('');
-    router.push('/');
+    if (router) {
+      router.push('/');
+    }
   };
 
   useEffect(() => {
