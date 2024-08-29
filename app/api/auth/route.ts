@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       user: { client_user_id },
       client_name: "Plaid's Tiny Quickstart",
       language: 'en',
-      products: ['auth', 'transactions'],
+      products: ['auth', 'transactions'], // Ensure these are valid types
       country_codes: ['US'],
       redirect_uri: process.env.PLAID_SANDBOX_REDIRECT_URI,
     });
