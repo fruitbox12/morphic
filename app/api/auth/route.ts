@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { plaidClient } from '@/lib/plaid';
+import { CountryCode, Products } from 'plaid';
 
 export async function POST(request: Request) {
   try {
@@ -9,8 +10,8 @@ export async function POST(request: Request) {
       user: { client_user_id },
       client_name: "Plaid's Tiny Quickstart",
       language: 'en',
-      products: ['auth', 'transactions'], // Ensure these are valid types
-      country_codes: ['US'],
+      products: [Products.Auth, Products.Transactions], // Use the enum for products
+      country_codes: [CountryCode.Us], // Use the enum for country code
       redirect_uri: process.env.PLAID_SANDBOX_REDIRECT_URI,
     });
 
