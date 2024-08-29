@@ -4,6 +4,7 @@ import { getIronSession } from 'iron-session/edge';
 import { sessionOptions } from '@/lib/plaid';
 import { Chat } from '@/components/chat';
 import { generateId } from 'ai';
+import { AI } from './actions'
 
 export const dynamic = 'force-dynamic';
 
