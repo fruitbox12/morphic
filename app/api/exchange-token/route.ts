@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     request.session.access_token = exchangeResponse.data.access_token;
     await request.session.save();
 
+    // Here you could fetch additional Plaid data if needed
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Error exchanging public token:', error);
