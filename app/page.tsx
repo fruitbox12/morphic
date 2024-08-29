@@ -1,29 +1,21 @@
-'use client'
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAppState } from '@/lib/utils/app-state';
+import { redirect } from 'next/navigation';
+import { getIronSession } from 'iron-session/edge';
+import { sessionOptions } from '@/lib/plaid';
 import { Chat } from '@/components/chat';
 import { generateId } from 'ai';
 import { AI } from './actions';
 
-export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 
-export default function Page() {
-  const id = generateId();
-  const { plaidData } = useAppState(); // Access the Plaid data from the state
-  const router = useRouter();
+export default async function Page(req: Request) {
+  const session = await getIronSession(req, NextResponse.next(), sessionOptions);
 
-  useEffect(() => {
-    if (!plaidData) {
-      // If no Plaid data is present, redirect to the authentication page
-      router.push('/auth');
-    }
-  }, [plaidData, router]);
-
-  // Render the chat component only if the user is authenticated with Plaid
-  if (!plaidData) {
-    return null; // or a loading indicator
+  // If not authenticated, redirect to the auth page
+  if (!session.access_token) {
+    return redirect('/auth');
   }
+
+  const id = generateId();
 
   return (
     <AI initialAIState={{ chatId: id, messages: [] }}>
