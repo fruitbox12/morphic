@@ -23,5 +23,5 @@ async function exchangeTokenHandler(req, res) {
   }
 }
 
-// Correctly export the API handler wrapped with session handling
-export default withIronSessionApiRoute(exchangeTokenHandler, sessionOptions);
+// Export as a named POST method handler for the route
+export const POST = withIronSessionApiRoute(exchangeTokenHandler, sessionOptions);
