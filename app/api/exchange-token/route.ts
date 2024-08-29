@@ -3,7 +3,7 @@ import { plaidClient } from 'lib/plaid';
 import { withSessionRoute } from 'iron-session/next/route';
 import { sessionOptions } from '@/lib/session';
 
-export async function POST(request: Request) {
+async function exchangeTokenHandler(request: Request) {
   try {
     const { public_token } = await request.json();
 
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     });
 
     // Assuming you have a way to handle session in this context:
-    const session = await getSession(request);  // Custom implementation required
+    const session = await getSession(request);  // You may need to implement this function to manage sessions
     session.access_token = exchangeResponse.data.access_token;
     await session.save();
 
@@ -28,4 +28,5 @@ export async function POST(request: Request) {
   }
 }
 
-export const POST = withSessionRoute(POST, sessionOptions);
+// Correctly export the POST method with session handling
+export const POST = withSessionRoute(exchangeTokenHandler, sessionOptions);
